@@ -1,17 +1,35 @@
 import json
+import datetime
 
-print("Running fake AI agent...")
+print("Starting AI agent simulation...")
 
-# fake prompt log
-with open("prompts.log", "a") as f:
-    f.write(json.dumps({"prompt": "Fix bug"}) + "\n")
+log_entry = {
+    "time": str(datetime.datetime.now()),
+    "action": "analyze_codebase",
+    "status": "running"
+}
 
-# fake agent actions log
+# Agent log
 with open("agent.log", "a") as f:
-    f.write(json.dumps({"action": "generate_patch"}) + "\n")
+    f.write(json.dumps(log_entry) + "\n")
 
-# fake patch file
+# Prompt log
+prompt_data = {
+    "prompt": "Fix failing OpenLibrary test using Claude Sonnet45"
+}
+with open("prompts.log", "a") as f:
+    f.write(json.dumps(prompt_data) + "\n")
+
+# Simulated patch output
+patch = """diff --git a/example.py b/example.py
+--- a/example.py
++++ b/example.py
+@@
+-print("bug")
++print("fixed")
+"""
+
 with open("changes.patch", "w") as f:
-    f.write("dummy patch content")
+    f.write(patch)
 
-print("Agent simulation complete")
+print("Agent finished successfully.")
