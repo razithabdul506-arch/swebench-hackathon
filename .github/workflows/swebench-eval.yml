@@ -12,16 +12,17 @@ jobs:
 
       - name: Pre Verification
         run: |
-          echo "Running initial tests"
-          echo "tests failing" > pre_verification.log
+          echo "Simulating pytest failures..."
+          echo "FAILED tests/example_test.py" > pre_verification.log
 
       - name: Run Agent
         run: python run_claude.py
 
       - name: Post Verification
         run: |
-          echo "tests passing" > post_verification.log
-
+          echo "Simulating pytest success..."
+          echo "PASSED tests/example_test.py" > post_verification.log
+          
       - name: Extract Metrics
         run: python extract_metrics.py
 
