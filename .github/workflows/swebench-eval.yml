@@ -7,9 +7,6 @@ jobs:
   run:
     runs-on: ubuntu-latest
 
-    container:
-      image: ghcr.io/swebench-hackathon/openlibrary-python312:latest
-
     steps:
       - uses: actions/checkout@v4
 
