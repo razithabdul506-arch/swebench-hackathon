@@ -1,39 +1,85 @@
-name: SWE Bench Hackathon
+name: SWE-bench Pro Evaluation
 
 on:
   workflow_dispatch:
+    inputs:
+      task_id:
+        description: 'Task ID to run'
+        required: true
+        default: 'internetarchive__openlibrary-c4eebe6677acc4629cb541a98d5e91311444f5d4'
 
 jobs:
-  run:
+  evaluate:
     runs-on: ubuntu-latest
+    container:
+      image: manojva/openlibrary-python312:latest
+      options: --user root
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Pre Verification
+      - name: Verify Docker Environment
         run: |
-          echo "Simulating pytest failures..."
-          echo "FAILED tests/example_test.py" > pre_verification.log
+          echo "Inside container"
+          python --version
+          pwd
 
-      - name: Run Agent
-        run: python run_claude.py
-
-      - name: Post Verification
+      - name: Setup environment
         run: |
-          echo "Simulating pytest success..."
-          echo "PASSED tests/example_test.py" > post_verification.log
-          
-      - name: Extract Metrics
-        run: python extract_metrics.py
+          echo "Setting up environment..." 
+          apt-get update && apt-get install -y git
+          pip install anthropic
 
-      - name: Upload Artifacts
+      - name: Clone and setup OpenLibrary repository
+        working-directory: /testbed
+        run: |
+          git clone https://github.com/internetarchive/openlibrary.git .
+          git reset --hard 84cc4ed5697b83a849e9106a09bfed501169cc20
+          git clean -fd
+          git checkout 84cc4ed5697b83a849e9106a09bfed501169cc20
+          git checkout c4eebe6677acc4629cb541a98d5e91311444f5d4 -- openlibrary/tests/core/test_imports.py
+
+      - name: Run pre-verification tests
+        working-directory: /testbed
+        continue-on-error: true
+        run: |
+          python -m pytest openlibrary/tests/core/test_imports.py::TestImportItem::test_find_staged_or_pending -xvs > /tmp/pre_verification.log 2>&1 || true
+          cat /tmp/pre_verification.log
+
+      - name: Run Claude to generate fixes
+        env:
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        working-directory: /testbed
+        run: |
+          cp $GITHUB_WORKSPACE/scripts/run_claude.py .
+          python run_claude.py --task-file $GITHUB_WORKSPACE/task.yaml
+
+      - name: Generate patch file
+        working-directory: /testbed
+        run: |
+          git diff > /tmp/changes.patch
+
+      - name: Run post-verification tests
+        working-directory: /testbed
+        run: |
+          python -m pytest openlibrary/tests/core/test_imports.py::TestImportItem::test_find_staged_or_pending -xvs > /tmp/post_verification.log 2>&1
+          cat /tmp/post_verification.log
+
+      - name: Extract metrics
+        working-directory: /testbed
+        run: |
+          cp $GITHUB_WORKSPACE/scripts/extract_metrics.py .
+          python extract_metrics.py
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: outputs
+          name: evaluation-results
           path: |
-            agent.log
-            result.json
-            pre_verification.log
-            post_verification.log
-            changes.patch
-            prompts.log
+            /tmp/agent.log
+            /tmp/result.json
+            /tmp/pre_verification.log
+            /tmp/post_verification.log
+            /tmp/changes.patch
+            /tmp/prompts.md
